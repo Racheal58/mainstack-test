@@ -18,7 +18,6 @@ import {
 
 const Filter = forwardRef(
   ({ filterValue, setFilterTransactionsData, setIsFilterChanged }, ref) => {
-    console.log("Filter Value:", filterValue);
 
     const [selectedTypes, setSelectedTypes] = useState(TYPE_OPTIONS);
     const [selectedStatus, setSelectedStatus] = useState(STATUS_OPTIONS);
