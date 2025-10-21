@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Box, Flex, Text, useDisclosure } from "@chakra-ui/react";
+import { Box, Flex, Text, useDisclosure, Heading } from "@chakra-ui/react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -9,7 +9,7 @@ import {
   LineElement,
   Tooltip,
 } from "chart.js";
-import { IoChevronDownOutline } from "react-icons/io5";
+import { IoChevronDownOutline, IoReceiptOutline } from "react-icons/io5";
 import { AiOutlineExclamationCircle } from "react-icons/ai";
 import { GoArrowDownLeft, GoArrowUpRight } from "react-icons/go";
 import { BsDownload } from "react-icons/bs";
@@ -37,26 +37,29 @@ export default function RevenueDashboard() {
   const [transactionsData, setTransactionsData] = useState(null);
   const [filterTransactionsData, setFilterTransactionsData] = useState(null);
   const [isFilterChanged, setIsFilterChanged] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       const walletResponse = await getAPIEndpoint("wallet");
       const transactionsResponse = await getAPIEndpoint("transactions");
-      if (!walletResponse && transactionsResponse) return;
+      if (!walletResponse && transactionsResponse) {
+        setLoading(false);
+        return;
+      }
       setWalletData(walletResponse);
       setTransactionsData(transactionsResponse);
+      setLoading(false);
     };
 
     fetchData();
   }, []);
 
-  const listToRender =
-    Array.isArray(filterTransactionsData) && filterTransactionsData.length > 0
-      ? filterTransactionsData
-      : Array.isArray(transactionsData)
-      ? transactionsData
-      : [];
+  const listToRender = isFilterChanged
+    ? filterTransactionsData || []
+    : transactionsData || [];
 
   const handleApply = () => {
     if (filterRef.current) {
@@ -69,6 +72,7 @@ export default function RevenueDashboard() {
     if (filterRef.current) {
       filterRef.current.resetForm();
     }
+    onClose();
   };
 
   return (
@@ -266,79 +270,149 @@ export default function RevenueDashboard() {
         </Flex>
 
         <Box>
-          {listToRender.map((tx, i) => (
+          {loading ? (
             <Flex
-              key={i}
               align="center"
+              justify="center"
               bg="white"
-              p={{ base: 3, md: 4 }}
-              mb={2}
+              p={6}
               borderRadius="12px"
+              minH="120px"
+              data-testid="loading-state"
             >
-              <Flex
-                align="center"
-                justify="center"
-                w={{ base: "36px", md: "40px" }}
-                h={{ base: "36px", md: "40px" }}
-                borderRadius="full"
-                bg={tx.type === "withdrawal" ? " #FFEBEE" : "#E8F5E9"}
-                mr={{ base: 3, md: 4 }}
-              >
-                {tx.type === "withdrawal" ? (
-                  <GoArrowUpRight color="#F44336" size={15} />
-                ) : (
-                  <GoArrowDownLeft color="#4CAF50" size={15} />
-                )}
-              </Flex>
-              <Box flex="1" minW="0">
-                <Text
-                  fontSize={{ base: "14px", md: "15px" }}
-                  fontWeight="600"
-                  mb={1}
-                  noOfLines={1}
-                >
-                  {tx.type === "withdrawal"
-                    ? "Cash Withdrawal"
-                    : tx.metadata?.product_name ?? "N/A"}
-                </Text>
-
-                <Text
-                  fontSize={{ base: "12px", md: "13px" }}
-                  color={
-                    tx.type === "withdrawal"
-                      ? tx.status === "successful"
-                        ? "#4CAF50"
-                        : "#FF9800"
-                      : "#999"
-                  }
-                >
-                  {tx.type === "withdrawal"
-                    ? tx.status === "successful"
-                      ? "Successful"
-                      : tx.status
-                    : tx.metadata?.name ?? "N/A"}
-                </Text>
-              </Box>
-              <Box textAlign="right" ml={2}>
-                <Text
-                  fontSize={{ base: "14px", md: "15px" }}
-                  fontWeight="600"
-                  mb={1}
-                  whiteSpace="nowrap"
-                >
-                  USD {tx.amount}
-                </Text>
-
-                <Text
-                  fontSize={{ base: "11px", md: "13px" }}
-                  color="#999"
-                  whiteSpace="nowrap"
-                >
-                  {formatDate(tx.date)}
-                </Text>
-              </Box>
+              <Text fontSize="16px" color="#999">
+                Loading transactions...
+              </Text>
             </Flex>
-          ))}
+          ) : listToRender.length === 0 ? (
+            <Flex
+              mx="auto"
+              direction="column"
+              align="flex-start"
+              gap={5}
+              justify="center"
+              bg="white"
+              p={6}
+              borderRadius="12px"
+              minH="120px"
+              maxW="400px"
+              data-testid="no-results"
+            >
+              <CustomButton
+                bg="#F0F0F0"
+                color="black"
+                fontSize="14px"
+                fontWeight="500"
+                h="48px"
+                px={6}
+                borderRadius="xl"
+                _hover={{ bg: "#E5E5E5" }}
+                flex={{ base: 1, md: "none" }}
+                label={
+                  <Flex
+                    justifyContent="space-between"
+                    alignItems="center"
+                    gap={2}
+                  >
+                    <IoReceiptOutline />
+                  </Flex>
+                }
+              />
+              <Heading as="h2" size="lg">
+                No matching transaction found for the selected filter
+              </Heading>
+              <Text fontSize="16px" color="#999">
+                Change your filters to see more results, or add a new product.
+              </Text>
+              <CustomButton
+                label="Clear Filter"
+                bg="#F0F0F0"
+                color="black"
+                fontSize="14px"
+                fontWeight="500"
+                h="40px"
+                px={6}
+                borderRadius="full"
+                _hover={{ bg: "#E5E5E5" }}
+                flex={{ base: 1, md: "none" }}
+                onClick={handleClear}
+              />
+            </Flex>
+          ) : (
+            listToRender.map((tx, i) => (
+              <Flex
+                key={i}
+                align="center"
+                bg="white"
+                p={{ base: 3, md: 4 }}
+                mb={2}
+                borderRadius="12px"
+              >
+                <Flex
+                  align="center"
+                  justify="center"
+                  w={{ base: "36px", md: "40px" }}
+                  h={{ base: "36px", md: "40px" }}
+                  borderRadius="full"
+                  bg={tx.type === "withdrawal" ? " #FFEBEE" : "#E8F5E9"}
+                  mr={{ base: 3, md: 4 }}
+                >
+                  {tx.type === "withdrawal" ? (
+                    <GoArrowUpRight color="#F44336" size={15} />
+                  ) : (
+                    <GoArrowDownLeft color="#4CAF50" size={15} />
+                  )}
+                </Flex>
+                <Box flex="1" minW="0">
+                  <Text
+                    fontSize={{ base: "14px", md: "15px" }}
+                    fontWeight="600"
+                    mb={1}
+                    noOfLines={1}
+                  >
+                    {tx.type === "withdrawal"
+                      ? "Cash Withdrawal"
+                      : tx.metadata?.product_name ?? "N/A"}
+                  </Text>
+
+                  <Text
+                    fontSize={{ base: "12px", md: "13px" }}
+                    color={
+                      tx.type === "withdrawal"
+                        ? tx.status === "successful"
+                          ? "#4CAF50"
+                          : "#FF9800"
+                        : "#999"
+                    }
+                  >
+                    {tx.type === "withdrawal"
+                      ? tx.status === "successful"
+                        ? "Successful"
+                        : tx.status
+                      : tx.metadata?.name ?? "N/A"}
+                  </Text>
+                </Box>
+                <Box textAlign="right" ml={2}>
+                  <Text
+                    fontSize={{ base: "14px", md: "15px" }}
+                    fontWeight="600"
+                    mb={1}
+                    whiteSpace="nowrap"
+                  >
+                    USD {tx.amount}
+                  </Text>
+
+                  <Text
+                    fontSize={{ base: "11px", md: "13px" }}
+                    color="#999"
+                    whiteSpace="nowrap"
+                  >
+                    {formatDate(tx.date)}
+                  </Text>
+                </Box>
+              </Flex>
+            ))
+          )}
         </Box>
       </Flex>
 
